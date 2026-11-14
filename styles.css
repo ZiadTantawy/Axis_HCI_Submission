@@ -2,7 +2,7 @@
    Colour roles: blue = actions, amber = attention, purple = OCR review, teal = confirm/publish,
    green = done, red = red flags (teacher only). Text colours pass WCAG AA on their backgrounds. */
 :root {
-  --text: #101828; --text-2: #475467; --text-3: #98A2B3;
+  --text: #101828; --text-2: #475467; --text-3: #667085;
   --surface: #FFFFFF; --canvas: #F6F7F9; --subtle: #F2F4F7; --muted-bg: #EAECF0; --inverse: #1D2939; --paper: #FFFCF3;
   --border: #E4E7EC; --border-strong: #D0D5DD;
   --brand: #2563EB; --brand-strong: #1E40AF; --brand-soft: #EEF3FF; --brand-border: #C7D7FE;
