@@ -76,6 +76,8 @@ const QS = [
 ];
 
 const STUDENT = { name: 'Lina', grade: 'Grade 4', cls: '4A' };
+const TEACHER = { name: 'Ms. Farida', initials: 'MF', role: 'Maths · Grade 4A' };
+const PARENT = { name: 'Mona Hassan', initials: 'MH', role: 'Parent of Lina' };
 const PARENT_NAME = "Lina's parent";
 
 const PRIOR = [
@@ -90,11 +92,16 @@ const HISTORY = [
 ];
 
 const MOCK_CLASS = [
-  { name: 'Omar', status: 'Published', tone: 'green' },
-  { name: 'Salma', status: 'Verified · ready to finalize', tone: 'teal' },
-  { name: 'Youssef', status: 'Needs OCR review', tone: 'amber' },
-  { name: 'Nour', status: 'Not submitted yet', tone: 'grey' }
+  { name: 'Omar', status: 'Published', tone: 'green', key: 'pub' },
+  { name: 'Salma', status: 'Verified · ready to finalize', tone: 'teal', key: 'ready' },
+  { name: 'Youssef', status: 'Needs OCR review', tone: 'amber', key: 'ocr' },
+  { name: 'Nour', status: 'Not submitted yet', tone: 'grey', key: 'none' }
 ];
+
+/* Sample student who also has a suggested flag (shown on Class insights only). */
+const SAMPLE_FLAG = { id: 'f2', who: 'Youssef', text: 'Word problems: same mistake in 2 verified exams.' };
+
+const MSG_TYPES = ['Encouragement', 'Practice recommendation', 'Please come and see me'];
 
 /* Anonymous class mistake patterns: teacher wording, student wording. No names, no counts for students. */
 const PATTERNS = [

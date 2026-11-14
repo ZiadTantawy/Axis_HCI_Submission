@@ -31,6 +31,11 @@ const ICONS = {
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
   file: '<path d="M7 3h7l4 4v14H7zM14 3v4h4"/>',
   send: '<path d="M4 12l16-8-6 16-3-7z"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5M16 4.8a3.5 3.5 0 010 6.4M18 14.8c2 .6 3.5 2.3 3.5 5.2"/>',
+  scan: '<path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3M7 12h10"/>',
+  circleCheck: '<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8"/>',
+  trend: '<path d="M4 17l5-5 4 4 7-8M15 8h5v5"/>',
+  chat: '<path d="M5 5h14a1 1 0 011 1v10a1 1 0 01-1 1h-8l-4 3v-3H5a1 1 0 01-1-1V6a1 1 0 011-1z"/>',
   shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2.2 2.2L15 10"/>'
 };
 const ic = (n, s = 20) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`;
@@ -45,9 +50,10 @@ function fresh() {
     role: 'student',
     screen: { student: 'home', teacher: 'queue', parent: 'home' },
     stu: { subject: 'Mathematics', exam: 'fractions', lang: 'de', pages: [], stage: 'none', captures: 0, pid: 0, sel: 0 },
+    /* Student notifications: link opens a screen. Parent thread: from = teacher | parent | system. */
     notifs: {
-      student: [{ id: 1, text: 'Your feedback for Exam 2 is ready.', read: false, time: 'Last week' }],
-      parent: [{ id: 1, text: 'Biweekly report is ready: grades, submissions and attendance.', read: false, time: 'Last week' }]
+      student: [{ id: 1, text: 'Your feedback for Exam 2 is ready.', read: true, time: 'Last week' }],
+      parent: [{ id: 1, from: 'teacher', text: 'Welcome to Grade 4A! I will post Lina’s results here after I check them.', read: true, time: 'Last week' }]
     },
     newIds: [],
     practiced: {},
@@ -102,32 +108,37 @@ const inkHtml = (q, mark = true) =>
   esc(L(q.ink)).replace(/\[\[(.+?)\]\]/g, mark ? '<mark class="unc">$1</mark>' : '$1');
 const impactLabel = n => n >= 2 ? 'High impact' : n === 1 ? 'Medium impact' : 'No effect on marks';
 
-/* Learning gaps are computed from VERIFIED answers only. */
+/* Learning gaps are computed from VERIFIED answers only. A gap only raises a red flag
+   when the same mistake repeats across exams; a first-time mistake is a gap without a flag. */
 function gaps() {
   if (!allVerified()) return [];
   const q4 = QS[3], q6 = QS[5];
   const arr = [{
-    id: 'g1', title: 'Comparing fractions', flag: 'Needs support: comparing fractions',
+    id: 'g1', title: 'Compares fractions using only the top numbers', skill: 'Fractions',
+    flagged: true, flag: 'Needs extra support in fractions',
+    why: `Same mistake in ${HISTORY.length + 1} exams.`,
     ev: [
-      { lab: 'Exam 3 · Q6', txt: L(q6.cands[0].full), now: true },
-      ...HISTORY.slice().reverse().map(h => ({ lab: h.exam, txt: h.text }))
+      ...HISTORY.map(h => ({ lab: h.exam, txt: h.text })),
+      { lab: 'This exam · Q6', txt: L(q6.cands[0].full), now: true }
     ]
   }];
   if (qMark(q4) < maxM(q4)) {
     arr.push({
-      id: 'g2', title: 'Naming the denominator', flag: 'Needs support: naming the denominator',
-      ev: [{ lab: 'Exam 3 · Q4', txt: selFull(q4), now: true }]
+      id: 'g2', title: 'Mixes up numerator and denominator', skill: 'Naming the denominator',
+      flagged: false, why: 'First time, so no flag is suggested.',
+      ev: [{ lab: 'This exam · Q4 (reading you confirmed)', txt: selFull(q4), now: true }]
     });
   }
   return arr;
 }
+const confirmedGaps = () => gaps().filter(g => S.t.dec[g.id] && S.t.dec[g.id].s === 'confirmed');
 
 /* ---------- routing ---------- */
 const SCREENS = { student: {}, teacher: {}, parent: {} };
 const NAV = {
   student: [['home', 'Home', 'home'], ['exam', 'My exam', 'pencil'], ['results', 'Results', 'star'], ['notifs', 'Notifications', 'bell']],
-  teacher: [['queue', 'Class set', 'book'], ['verify', 'Verify OCR', 'eye'], ['finalize', 'Finalize', 'check'], ['insights', 'Class insights', 'chart']],
-  parent: [['home', 'Progress', 'chart'], ['messages', 'Messages', 'bell']]
+  teacher: [['queue', 'Class set', 'users'], ['verify', 'Verify OCR', 'scan'], ['finalize', 'Finalize', 'circleCheck'], ['insights', 'Class insights', 'chart']],
+  parent: [['home', 'Progress', 'trend'], ['messages', 'Messages', 'chat']]
 };
 const ROLENAME = { student: 'Student', teacher: 'Teacher', parent: 'Parent' };
 
@@ -136,21 +147,35 @@ function unreadCount(role) {
   return S.notifs[k].filter(n => !n.read).length;
 }
 
+const roleSwitch = () => `<div class="seg" role="group" aria-label="Prototype: switch between views">${['student', 'teacher', 'parent'].map(x =>
+  `<button class="seg-b${x === S.role ? ' on' : ''}" data-act="role" data-arg="${x}" aria-pressed="${x === S.role}">${ROLENAME[x]}</button>`).join('')}</div>`;
+
+/* Student: header + bottom tab bar (phone pattern). Teacher and parent: left sidebar (laptop pattern). */
 function topbar() {
   const r = S.role, cur = S.screen[r];
   const tabs = NAV[r].map(([id, label, icon]) => {
-    const active = (r === 'student' && id === 'exam' && ['exam', 'review', 'status'].includes(cur)) || cur === id;
-    const badge = ((r === 'student' && id === 'notifs') || (r === 'parent' && id === 'messages')) && unreadCount(r)
-      ? `<span class="badge" aria-label="${unreadCount(r)} unread">${unreadCount(r)}</span>` : '';
-    return `<button class="tab${active ? ' on' : ''}" data-act="nav" data-arg="${id}" ${active ? 'aria-current="page"' : ''}>${ic(icon, 18)}<span>${label}</span>${badge}</button>`;
+    const active = (r === 'student' && id === 'exam' && ['exam', 'review', 'status'].includes(cur)) || (r === 'student' && id === 'results' && cur === 'practice') || cur === id;
+    const n = ((r === 'student' && id === 'notifs') || (r === 'parent' && id === 'messages')) ? unreadCount(r) : 0;
+    const badge = n ? `<span class="badge" aria-label="${n} unread">${n}</span>` : '';
+    const cur_ = active ? 'aria-current="page"' : '';
+    return r === 'student'
+      ? `<button class="tab${active ? ' on' : ''}" data-act="nav" data-arg="${id}" ${cur_}><span class="pill">${ic(icon, 20)}${badge}</span><span>${label}</span></button>`
+      : `<button class="tab${active ? ' on' : ''}" data-act="nav" data-arg="${id}" ${cur_}>${ic(icon, 20)}<span>${label}</span>${badge}</button>`;
   }).join('');
-  const roles = ['student', 'teacher', 'parent'].map(x =>
-    `<button class="seg-b${x === r ? ' on' : ''}" data-act="role" data-arg="${x}" aria-pressed="${x === r}">${ROLENAME[x]}</button>`).join('');
-  return `<div class="tb-in">
-      <div class="brand"><span class="logo" aria-hidden="true">A</span><strong>Axis</strong><span class="sep" aria-hidden="true">|</span><span>${ROLENAME[r]}</span></div>
-      <div class="seg" role="group" aria-label="Prototype: switch between views">${roles}</div>
-    </div>
-    <nav class="tabs" aria-label="${ROLENAME[r]} navigation">${tabs}</nav>`;
+  const brand = `<div class="brand"><span class="logo" aria-hidden="true">A</span><span>Axis</span><span class="role-chip">${ROLENAME[r]}</span></div>`;
+  if (r === 'student') {
+    return `<div class="tb-in">${brand}<div class="tb-r">${roleSwitch()}<span class="avatar" aria-label="Signed in as ${STUDENT.name}">${STUDENT.name[0]}</span></div></div>
+      <nav class="tabbar" aria-label="Student navigation">${tabs}</nav>`;
+  }
+  const who = r === 'teacher' ? TEACHER : PARENT;
+  const sec = r === 'teacher' ? `Grade ${STUDENT.cls} · Mathematics` : `My child · ${STUDENT.name}, ${STUDENT.cls}`;
+  return `<div class="side-in">${brand}
+      <div class="side-sec">${sec}</div>
+      <nav class="vtabs" aria-label="${ROLENAME[r]} navigation">${tabs}</nav>
+      <div class="side-foot">
+        <div class="profile"><span class="avatar solid" aria-hidden="true">${who.initials}</span><div><strong>${who.name}</strong><span>${who.role}</span></div></div>
+        <div class="side-sec">Prototype · view as</div>${roleSwitch()}
+      </div></div>`;
 }
 
 function render(nav) {
@@ -160,6 +185,7 @@ function render(nav) {
     key = { id: ae.id, act: ae.dataset && ae.dataset.act, arg: ae.dataset && ae.dataset.arg, ss: ae.selectionStart, se: ae.selectionEnd };
   }
   document.body.dataset.role = S.role;
+  document.body.classList.toggle('has-side', S.role !== 'student');
   $('#topbar').innerHTML = topbar();
   const fn = SCREENS[S.role][S.screen[S.role]] || SCREENS[S.role][Object.keys(SCREENS[S.role])[0]];
   $('#main').innerHTML = fn();
@@ -259,6 +285,7 @@ A.role = el => go(S.screen[el.dataset.arg], el.dataset.arg);
 function demoPanel() {
   return `<div class="demo-head"><strong>Demo tools</strong><button class="icon-btn" data-act="demoToggle" aria-label="Close demo tools">${ic('x', 16)}</button></div>
     <p class="muted small">Shortcuts for presenting or testing. Not part of the product UI.</p>
+    <div class="lbl">View as</div>${roleSwitch()}
     <button class="btn secondary block" data-act="seedSubmitted">Skip: Lina has submitted her exam</button>
     <button class="btn secondary block" data-act="seedPublished">Skip: teacher finished, result published</button>
     <button class="btn ghost block" data-act="reset">Reset demo</button>`;

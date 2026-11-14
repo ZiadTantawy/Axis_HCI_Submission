@@ -23,10 +23,15 @@ Optional local server: `python3 -m http.server 8000`, then open http://localhost
 
 1. **Student** view: *Upload my exam* → choose subject, exam and language → *Scan paper* → tap *Take photo* twice (the second photo is blurry on purpose) → *Retake page 2* → *Submit paper*.
 2. **Teacher** view: *Class set* → *Open* on Lina → work through the uncertain readings (Question 4 first, then 5, then 2) → *Approve selected* → *Continue to grading*.
-3. **Finalize**: confirm marks, confirm feedback, confirm or dismiss each gap (dismissal needs a reason), review class patterns → *Review release summary* → *Publish result*.
-4. **Student** view: *Results* shows only what the teacher released. **Parent** view shows the same result for the parent's own child.
+3. **Finalize**: confirm marks, confirm feedback, confirm or dismiss the suggested **red flag** (dismissal needs a reason), approve class patterns → *Review release summary* → *Publish result*.
+4. **Class insights**: misconception groups, Lina's verified history, students who need support → *Send comment* to Lina (and her parent).
+5. **Student** view: Home shows the new result and an unread badge on *Notifications*. *Results* shows only what the teacher released, with the confirmed weakness as a calm "Skill to work on" note. **Parent** view shows the same result for the parent's own child, "Extra practice suggested" for a confirmed flag, and a message thread with the teacher.
 
 Use the **Demo tools** button (bottom right) to skip ahead or reset. It is not part of the product design.
+
+## Design
+
+The visual design matches the team's Figma prototype: the same colour tokens (`styles.css`, top of file), Plus Jakarta Sans, a phone layout with a bottom tab bar for students, and a laptop layout with a left sidebar for teachers and parents. Patrick Hand only simulates the child's handwriting. Red is used for red flags in the teacher view only; children never see the word "flag".
 
 ## Features that come from the teacher interview and Milestone 1
 

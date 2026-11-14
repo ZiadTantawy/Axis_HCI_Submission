@@ -37,22 +37,21 @@ SCREENS.student.home = () => {
   const status = st === 'none' ? ['Not uploaded yet', 'grey', 'clock'] : st === 'submitted' ? ['Waiting for teacher review', 'amber', 'clock'] : ['Your result is ready', 'green', 'check'];
   const nts = S.notifs.student.slice(0, 2);
   const vals = PRIOR.map(p => p.pct).concat(S.t.pub ? [S.t.pub.pct] : []);
-  const labels = PRIOR.map(p => p.label).concat(S.t.pub ? ['Exam 3'] : []);
-  const cta = st === 'none' ? `<button class="btn primary big" data-act="nav" data-arg="exam">${ic('upload')} Upload my exam</button>`
-    : st === 'submitted' ? `<button class="btn secondary big" data-act="nav" data-arg="exam">See where my exam is</button>`
-      : `<button class="btn primary big" data-act="nav" data-arg="results">${ic('star')} See my results</button>`;
-  return `<div class="wrap">
-    <h1>Welcome back, ${STUDENT.name}!</h1>
-    <div class="grid2">
-      <section class="card"><h2>Assigned exam</h2>
-        <p class="lead">Mathematics · ${STUDENT.grade}</p><p><strong>Fractions Check</strong></p>
-        <p class="muted">Upload due Friday</p>${cta}</section>
-      <section class="card"><h2>Submission status</h2>
-        <p><span class="chip ${status[1]}">${ic(status[2], 16)} ${status[0]}</span></p>
-        <p class="muted">${st === 'none' ? 'Take photos of your pages or upload a file.' : st === 'submitted' ? 'Your teacher is checking your exam. We will tell you when it is ready.' : 'Your teacher has checked your exam.'}</p></section>
-    </div>
+  const labels = PRIOR.map(p => p.label).concat(S.t.pub ? ['This exam'] : []);
+  const pub = st === 'published';
+  const cta = st === 'none' ? `<button class="btn primary big block" data-act="nav" data-arg="exam">${ic('upload')} Upload my exam</button>`
+    : st === 'submitted' ? `<button class="btn secondary big block" data-act="nav" data-arg="exam">See where my exam is</button>`
+      : `<button class="btn primary big block" data-act="nav" data-arg="results">${ic('star')} See my results</button>`;
+  return `<div class="wrap narrow">
+    <h1>Welcome back, ${STUDENT.name}!</h1><p class="sub">${STUDENT.grade}${STUDENT.cls.slice(1)}</p>
+    <section class="card"><h2>${pub ? `New from ${TEACHER.name}` : 'Assigned exam'}</h2>
+      <p class="muted">${pub ? 'Mathematics' : `Mathematics, ${STUDENT.grade}`}</p><p class="lead"><strong>Fractions Check</strong></p>
+      <p class="muted">${pub ? 'Your results are ready to see.' : st === 'submitted' ? 'Sent. Your teacher is checking it.' : 'Upload due Friday'}</p>${cta}</section>
+    <section class="card"><h2>Submission status</h2>
+      <p><span class="chip ${status[1]}">${ic(status[2], 16)} ${pub ? `Checked by ${TEACHER.name}` : status[0]}</span></p>
+      <p class="muted">${st === 'none' ? 'Take photos of your pages or upload a file.' : st === 'submitted' ? 'Your teacher is checking your exam. We will tell you when it is ready.' : 'Your teacher checked every answer before sharing your grade.'}</p></section>
     <section class="card"><div class="row between"><h2>Notifications</h2><button class="btn ghost" data-act="nav" data-arg="notifs">See all</button></div>
-      ${nts.map(n => `<p class="note-row">${ic('bell', 18)}<span>${esc(n.text)}</span></p>`).join('')}</section>
+      ${nts.map(n => `<p class="note-row">${n.read ? ic('bell', 18) : '<span class="dotn" aria-label="Unread"></span>'}<span>${esc(n.text)}</span></p>`).join('')}</section>
     <section class="card"><h2>My progress across exams</h2>${progressBars(vals, labels)}<p class="muted">${encourage(vals)}</p></section>
   </div>`;
 };
@@ -223,24 +222,24 @@ SCREENS.student.status = () => {
 SCREENS.student.results = () => {
   const p = S.t.pub;
   if (S.stu.stage !== 'published' || !p) {
-    return `<div class="wrap narrow"><h1>My results</h1><section class="card center">${ic('lock', 36)}
-      <p class="lead">Your results are not ready yet.</p>
-      <p class="muted">${S.stu.stage === 'none' ? 'Upload your exam first.' : 'Your teacher is still checking your exam. We will tell you when it is ready.'}</p>
+    return `<div class="wrap narrow"><h1>My results</h1><p class="sub">Fractions Check</p><section class="card center">${ic('lock', 36)}
+      <p class="lead"><strong>Locked until ${TEACHER.name} confirms it</strong></p>
+      <p class="muted">${S.stu.stage === 'none' ? 'Upload your exam first.' : 'Your teacher checks every answer first. You will get a notification when your results are ready.'}</p>
       <button class="btn secondary" data-act="nav" data-arg="${S.stu.stage === 'none' ? 'exam' : 'home'}">${S.stu.stage === 'none' ? 'Upload my exam' : 'Back to home'}</button></section></div>`;
   }
   const vals = PRIOR.map(x => x.pct).concat([p.pct]);
-  const labels = PRIOR.map(x => x.label).concat(['Exam 3']);
-  return `<div class="wrap">
-    <h1>My results</h1>
-    <section class="card grade"><div><span class="muted">Teacher-confirmed grade</span><div class="big-n">${p.pct}%</div><span class="muted">${p.pts} out of ${p.max}</span></div>${ic('check', 40)}</section>
-    <section class="card"><h2>Feedback</h2><p class="lead">${esc(p.fb)}</p>${p.support ? `<p class="support">${ic('user', 18)} ${esc(p.support)}</p>` : ''}</section>
-    <div class="grid2">
-      <section class="card"><h2>My revision list</h2>${p.practice.length ? `<ol class="plain">${p.practice.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : '<p class="muted">Nothing to add this time.</p>'}</section>
-      <section class="card"><h2>Class common mistakes</h2>${p.patterns.length ? p.patterns.map(x => `<div class="pat"><strong>${esc(x.title)}</strong><p class="muted">${esc(x.explain)}</p></div>`).join('') : '<p class="muted">Your teacher has not added any yet.</p>'}
-        <p class="small muted">${ic('shield', 14)} These are shared without names or answers.</p></section>
-    </div>
-    <section class="card"><h2>My progress</h2>${progressBars(vals, labels)}<p class="muted">${encourage(vals)}</p></section>
-    <button class="btn primary big" data-act="nav" data-arg="practice">Choose a skill to practise next ${ic('arrow')}</button>
+  const labels = PRIOR.map(x => x.label).concat(['This exam']);
+  return `<div class="wrap narrow">
+    <h1>My results</h1><p class="sub">Fractions Check</p>
+    <section class="card grade"><span class="chip teal">${ic('check', 14)} Teacher-confirmed grade</span>
+      <div class="grade-n"><span class="big-n">${p.pts} out of ${p.max}</span><span class="muted">Checked by ${TEACHER.name}</span></div>
+      ${progressBars(vals, labels)}<p class="muted">${encourage(vals)}</p></section>
+    <section class="card"><h2>From your teacher</h2><p>${esc(p.fb)}</p>
+      ${p.support ? `<div class="support"><span class="support-l">Skill to work on: ${esc(p.skills.join(', '))}</span>${esc(p.support)}</div>` : ''}</section>
+    <section class="card"><h2>My revision list</h2>${p.practice.length ? `<ul class="revlist">${p.practice.map(x => `<li>${ic('star', 18)} ${esc(x)}</li>`).join('')}</ul>
+      <button class="btn primary big block" data-act="nav" data-arg="practice">Choose a skill to practise</button>` : '<p class="muted">Nothing to add this time.</p>'}</section>
+    <section class="card flat"><h2>Class common mistakes</h2>${p.patterns.length ? p.patterns.map(x => `<div class="pat"><strong>${esc(x.title)}</strong><p class="muted">${esc(x.explain)}</p></div>`).join('') : '<p class="muted">Your teacher has not added any yet.</p>'}
+      <p class="small muted">${ic('lock', 14)} No names or scores are shown.</p></section>
   </div>`;
 };
 
@@ -260,5 +259,9 @@ A.practised = el => {
 };
 
 /* ---------- notifications ---------- */
-SCREENS.student.notifs = () => `<div class="wrap narrow"><h1>Notifications</h1><section class="card">
-  ${S.notifs.student.length ? S.notifs.student.map(n => `<div class="note-row big-row">${ic('bell', 20)}<div><span>${esc(n.text)}</span><br><span class="muted small">${esc(n.time)}</span></div>${S.newIds.includes(n.id) ? '<span class="chip blue">New</span>' : ''}</div>`).join('') : '<p class="muted">Nothing new.</p>'}</section></div>`;
+SCREENS.student.notifs = () => `<div class="wrap narrow"><h1>Notifications</h1><p class="sub">Messages from ${TEACHER.name} and updates about your exams.</p>
+  ${S.notifs.student.length ? S.notifs.student.map(n => {
+    const isNew = S.newIds.includes(n.id);
+    return `<section class="card"><div class="note-row">${isNew ? '<span class="dotn" aria-label="New"></span>' : ic('bell', 20)}<div><strong>${esc(n.text)}</strong><br><span class="muted small">${esc(n.time)}</span></div></div>
+      ${n.link === 'results' ? `<button class="btn primary big block" data-act="nav" data-arg="results">See my results</button>` : ''}</section>`;
+  }).join('') : '<section class="card"><p class="muted">Nothing new.</p></section>'}</div>`;

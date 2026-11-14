@@ -30,21 +30,28 @@ SCREENS.teacher.queue = () => {
     <th scope="row">${r.name}${r.live ? '' : ' <span class="muted small">(sample)</span>'}</th>
     <td><span class="chip ${r.tone}">${r.status}</span></td>
     <td class="ta-r">${r.live ? `<button class="btn ${can ? 'purple' : 'secondary'}" data-act="openLina" ${can ? '' : 'aria-disabled="true"'}>${S.stu.stage === 'published' ? 'View' : 'Open'}</button>` : '<span class="muted small">Prototype: sample row</span>'}</td></tr>`).join('');
-  const done = (S.stu.stage === 'published' ? 1 : 0) + 1;
   const p = S.t.paused;
-  return `<div class="wrap">
-    <h1>Grade 4A · Fractions Check</h1>
-    <p class="muted">Mathematics · ${LANGNAME[S.stu.lang]} exam · ${done} of 5 published</p>
-    ${p ? `<div class="banner teal" role="status">${ic('pause')}<div><strong>Class set paused.</strong> You stopped while checking Lina's answers. Your place is saved.
-      <div class="row gap"><button class="btn teal" data-act="resume">${ic('arrow', 18)} Resume where I left off</button></div></div></div>` : ''}
+  const st = S.stu.stage, lk = st === 'none' ? 'none' : st === 'published' ? 'pub' : allVerified() ? 'ready' : 'ocr';
+  const all = [{ name: STUDENT.name, key: lk }, ...MOCK_CLASS];
+  const names = k => all.filter(x => x.key === k).map(x => x.name);
+  const tiles = [
+    ['ocr', 'Needs OCR review', 'var(--warn-border)', n => n.length ? n.join(', ') : 'Nothing waiting'],
+    ['ready', 'Ready to finalize', 'var(--confirm)', n => n.join(', ') || 'Nothing waiting'],
+    ['pub', 'Published', 'var(--success)', () => 'Students see confirmed results only'],
+    ['none', 'Not submitted', 'var(--text-3)', n => n.length ? n.join(', ') + ' · reminder not sent' : 'Everyone has submitted']
+  ].map(([k, t, c, s]) => { const n = names(k); return `<div class="stat"><div class="stat-h"><i style="background:${c}"></i>${t}</div>
+      <div class="stat-n">${k === 'pub' ? `${n.length} of ${all.length}` : n.length}</div><div class="stat-s">${esc(s(n))}</div></div>`; }).join('');
+  return `<div class="wrap wide">
+    <div class="row between wrapr"><div><h1>Grade 4A Mathematics</h1>
+      <p class="sub">Fractions Check, ${QS.length} questions, ${totalMax()} marks, ${all.length} papers · ${LANGNAME[S.stu.lang]} exam</p></div></div>
+    <div class="stats">${tiles}</div>
+    ${p ? `<div class="banner teal" role="status">${ic('pause')}<div><strong>You paused at ${STUDENT.name}'s paper.</strong> ${uncertain().filter(q => !S.t.ver[q.id].confirmed).length} uncertain readings left. Your place is saved.
+      <div class="row gap"><button class="btn teal" data-act="resume">${ic('arrow', 18)} Resume</button></div></div></div>` : ''}
     <section class="card"><h2>Submission queue</h2>
       <div class="tscroll"><table class="tbl"><thead><tr><th scope="col">Student</th><th scope="col">Status</th><th scope="col"><span class="sr">Action</span></th></tr></thead><tbody>${rows}</tbody></table></div>
       ${can ? '' : '<p class="hint">Lina has not uploaded yet. Switch to the Student view to upload, or use Demo tools to skip ahead.</p>'}
     </section>
-    <section class="card"><h2>How you stay in control</h2><ul class="plain tight">
-      <li>Uncertain readings come first, ranked by how much they could change the grade.</li>
-      <li>The child's original handwriting always stays next to the extracted text.</li>
-      <li>Students only see what you confirm and publish.</li></ul></section>
+    <p class="small muted">Papers with readings that could change marks come first. Readings that change no marks are reviewed last. Students only see what you confirm and publish.</p>
   </div>`;
 };
 A.openLina = () => go(allVerified() ? 'finalize' : 'verify');
@@ -86,7 +93,7 @@ function verifyCard(q, i, n) {
     return `<div class="cand${sel === ci ? ' on' : ''}"><input type="radio" id="cand-${ci}" name="cand" value="${ci}" data-chg="cand" ${sel === ci ? 'checked' : ''}>
       <label for="cand-${ci}"><span class="cv">${esc(L(c.v))}</span>${c.note ? `<span class="cn">${esc(L(c.note))}</span>` : ''}
         <span class="cm">${marksWord(m)}</span><span class="ct">Paper total ${totalIf(q, ci)}/${mx}</span><span class="cp">${c.p}% likely${ci === 0 ? ' · first guess' : ''}</span>
-        <span class="key" aria-hidden="true">${ci + 1}</span></label></div>`;
+        <kbd aria-hidden="true">${ci + 1}</kbd></label></div>`;
   }).join('');
   const custom = `<div class="cand${sel === 'custom' ? ' on' : ''}"><input type="radio" id="cand-custom" name="cand" value="custom" data-chg="cand" ${sel === 'custom' ? 'checked' : ''}>
       <label for="cand-custom"><span class="cv">Other</span><span class="cn">Type what the child wrote</span></label></div>`;
@@ -105,9 +112,9 @@ function verifyCard(q, i, n) {
       <h3>Candidate readings and mark effect</h3>
       <fieldset class="cands"><legend class="sr">Candidate readings for question ${q.n}</legend>${cands}${custom}</fieldset>${customBox}
       <div class="effect${changed ? ' hl' : ''}" role="status">${changed ? `${ic('warn', 18)} This reading changes the paper total from <strong>${fmt(base, mx)}</strong> to <strong>${fmt(tot, mx)}</strong>.` : `Paper total with this reading: <strong>${fmt(tot, mx)}</strong>.`}</div>
-      <p class="small muted">The original handwriting is never replaced. If the text hides a mistake the child made, choose “Correct text”. Shortcuts: 1–${q.cands.length} pick a reading, Enter confirms, N skips.</p>
-      <div class="row gap wrapr"><button class="btn purple big" data-act="confirmReading">${ic('check')} Confirm reading</button>
-        <button class="btn secondary big" data-act="nextUnc">Next uncertainty ${ic('arrow')}</button></div></div>`;
+      <p class="small muted">The original handwriting is never replaced. If the text hides a mistake the child made, choose “Correct text”. Shortcuts: <kbd>1</kbd>–<kbd>${q.cands.length}</kbd> pick a reading.</p>
+      <div class="row gap wrapr"><button class="btn purple big" data-act="confirmReading">${ic('check')} Confirm reading <kbd aria-hidden="true">Enter</kbd></button>
+        <button class="btn secondary big" data-act="nextUnc">Next uncertainty <kbd aria-hidden="true">N</kbd></button></div></div>`;
 }
 
 function bulkCard(left) {
@@ -223,36 +230,45 @@ SCREENS.teacher.finalize = () => {
   }).join('');
   const gapCards = gl.map(g => {
     const d = S.t.dec[g.id];
-    return `<div class="gap-c"><div class="row between wrapr"><div><strong>${esc(g.title)}</strong><br><span class="muted small">Suggested support flag: ${esc(g.flag)}</span></div>
-      ${d ? `<span class="chip ${d.s === 'confirmed' ? 'green' : 'grey'}">${d.s === 'confirmed' ? 'Confirmed' : 'Dismissed: ' + esc(d.reason)}</span>` : '<span class="chip amber">Needs your decision</span>'}</div>
-      <ul class="ev">${g.ev.map(e => `<li><span class="chip blue sm">${esc(e.lab)}</span> ${esc(e.txt)} <span class="chip green sm">${ic('check', 12)} Verified</span></li>`).join('')}</ul>
-      <div class="row gap wrapr"><button class="btn ${d && d.s === 'confirmed' ? 'green' : 'secondary'}" data-act="decide" data-arg="${g.id}|confirmed">${ic('check', 16)} Confirm</button>
-        <button class="btn secondary" data-act="openDismiss" data-arg="${g.id}">Dismiss with reason</button>
-        ${d ? `<button class="btn ghost" data-act="decide" data-arg="${g.id}|undo">Undo</button>` : ''}</div></div>`;
+    const flagBox = g.flagged ? `<div class="flagbox">${ic('flag', 18)}<div><strong>${d && d.s === 'confirmed' ? 'Red flag confirmed' : 'Red flag suggested'}: ${esc(g.flag.toLowerCase())}</strong>
+        ${esc(g.why)} If you confirm, ${STUDENT.name} sees a calm practice note and her parent sees “Extra practice suggested”. Neither sees the word “flag”.</div></div>`
+      : `<p class="muted small">${esc(g.why)}</p>`;
+    return `<div class="gap-c${d ? ' done' : ''}"><div class="row between wrapr"><strong>${esc(g.title)}</strong>
+      ${d ? `<span class="chip ${d.s === 'confirmed' ? 'green' : 'grey'}">${d.s === 'confirmed' ? ic('check', 14) + ' Confirmed' : 'Dismissed: ' + esc(d.reason)}</span>` : '<span class="chip amber">Needs decision</span>'}</div>
+      <ul class="ev">${g.ev.map(e => `<li><span class="chip grey" title="${esc(e.txt)} (verified)">${esc(e.lab)}</span></li>`).join('')}</ul>
+      ${flagBox}
+      <div class="row gap wrapr">${d ? `<button class="btn ghost" data-act="decide" data-arg="${g.id}|undo">Undo decision</button>` :
+        `<button class="btn teal" data-act="decide" data-arg="${g.id}|confirmed">${ic('check', 16)} ${g.flagged ? 'Confirm gap and flag' : 'Confirm'}</button>
+        <button class="btn secondary" data-act="openDismiss" data-arg="${g.id}">${g.flagged ? 'Dismiss flag with reason' : 'Dismiss with reason'}</button>`}</div></div>`;
   }).join('');
   const gapsDecided = gl.every(g => S.t.dec[g.id]);
-  const checks = [['Uncertain readings verified', true], ['Marks and grade confirmed', S.t.marksOk], ['Feedback and practice list confirmed', S.t.fbOk], ['Gap suggestions confirmed or dismissed', gapsDecided], ['Class mistake patterns reviewed', S.t.patReviewed]];
+  const nDecided = gl.filter(g => S.t.dec[g.id]).length;
+  const checks = [[`Text verified (${QS.length} of ${QS.length})`, true], ['Marks and grade confirmed', S.t.marksOk], ['Feedback and practice list confirmed', S.t.fbOk], [`Gaps and flags decided (${nDecided} of ${gl.length})`, gapsDecided], ['Class patterns approved', S.t.patReviewed]];
   const ready = checks.every(c => c[1]);
   const anyConf = Object.values(S.t.dec).some(d => d && d.s === 'confirmed');
   return `<div class="wrap wide">
-    <h1>Finalize result</h1>
+    <div class="row between wrapr"><div><h1>Finalize ${STUDENT.name}’s result</h1><p class="sub">Fractions Check. Nothing reaches ${STUDENT.name} until you publish.</p></div>
+      <span class="chip green">${ic('check', 14)} ${QS.length} of ${QS.length} answers verified</span></div>
     <section class="card sum"><div><span class="muted">Verified paper · suggested grade</span><div class="big-n">${tot} / ${mx}</div><span class="muted">${pct(tot, mx)}%</span></div>
       <div class="row gap wrapr"><button class="btn secondary" data-act="editRubric">${ic('pencil', 18)} Edit rubric and partial credit</button>
         <button class="btn ${S.t.marksOk ? 'green' : 'teal'}" data-act="confirmMarks">${ic('check', 18)} ${S.t.marksOk ? 'Marks confirmed' : 'Confirm marks and grade'}</button></div></section>
-    <section class="card"><h2>Rubric evidence</h2><p class="muted small">Each mark is linked to the rubric criterion and to what the child wrote. Change a mark with − and +.</p><div class="rtab">${rows}</div></section>
-    <section class="card"><h2>Feedback and practice list</h2>
-      <label for="fbText">Feedback for ${STUDENT.name} (child-friendly)</label><textarea id="fbText" data-inp="fb" rows="2">${esc(S.t.fb)}</textarea>
+    <div class="grid-side"><div>
+    <section class="card"><h2>Marks with rubric evidence</h2><p class="muted small">Each mark is linked to the rubric criterion and to what the child wrote. Change a mark with − and +.</p><div class="rtab">${rows}</div></section>
+    <section class="card"><h2>Learning gaps and red flags</h2><p class="muted small">Built only from answers you verified (${verifiedCount()} of ${QS.length}).</p>${gapCards}</section>
+    </div><div>
+    <section class="card"><h2>Feedback for ${STUDENT.name}</h2>
+      <label for="fbText">Feedback (child-friendly)</label><textarea id="fbText" data-inp="fb" rows="2">${esc(S.t.fb)}</textarea>
       <label for="supText">Support note ${anyConf ? '' : '<span class="muted small">(shown to the student only after you confirm a flag)</span>'}</label><textarea id="supText" data-inp="support" rows="2">${esc(S.t.support)}</textarea>
       <div class="lbl">Practice list</div>
       <ul class="pl">${S.t.practice.map((x, i) => `<li><span>${esc(x)}</span><button class="icon-btn" data-act="rmPractice" data-arg="${i}" aria-label="Remove ${esc(x)}">${ic('x', 16)}</button></li>`).join('') || '<li class="muted">No items yet.</li>'}</ul>
       <div class="row gap wrapr"><label class="sr" for="newPractice">New practice item</label><input id="newPractice" placeholder="Add a skill to practise"><button class="btn secondary" data-act="addPractice">${ic('plus', 16)} Add</button></div>
       <button class="btn ${S.t.fbOk ? 'green' : 'teal'}" data-act="confirmFb">${ic('check', 18)} ${S.t.fbOk ? 'Feedback confirmed' : 'Confirm feedback and practice list'}</button></section>
-    <section class="card"><h2>Gaps and flags</h2><p class="muted small">Based on verified answers only (${verifiedCount()} of ${QS.length}).</p>${gapCards}</section>
-    <section class="card"><div class="row between wrapr"><div><h2>Anonymous class mistake patterns</h2><p class="muted small">Students see these without names, answers or grades.</p></div>
-      <button class="btn ${S.t.patReviewed ? 'green' : 'secondary'}" data-act="reviewPatterns">${S.t.patReviewed ? ic('check', 18) + ' Reviewed' : 'Review and approve'}</button></div></section>
-    <section class="card release"><h2>Release</h2><ul class="checks">${checks.map(c => `<li class="${c[1] ? 'ok' : ''}">${c[1] ? ic('check', 16) : '<span class="circ"></span>'} ${c[0]}</li>`).join('')}</ul>
-      <button class="btn primary big" data-act="releaseSummary" ${ready ? '' : 'aria-disabled="true"'}>Review release summary and publish ${ic('arrow')}</button>
+    <section class="card"><h2>Class mistake patterns</h2><p class="muted small">${PATTERNS.map(p => `${esc(p.teacher)}: ${esc(p.count)}`).join('. ')}. Students see these without names or counts.</p>
+      <button class="btn ${S.t.patReviewed ? 'green' : 'secondary'}" data-act="reviewPatterns">${S.t.patReviewed ? ic('check', 18) + ' Approved' : 'Review and approve'}</button></section>
+    <section class="card release"><h2>Release checklist</h2><ul class="checks">${checks.map(c => `<li class="${c[1] ? 'ok' : ''}">${c[1] ? ic('circleCheck', 18) : '<span class="circ"></span>'} ${c[0]}</li>`).join('')}</ul>
+      <button class="btn teal big block" data-act="releaseSummary" ${ready ? '' : 'aria-disabled="true"'}>Review release summary</button>
       ${ready ? '' : '<p class="hint">Complete the steps above to publish. Nothing reaches the student before then.</p>'}</section>
+    </div></div>
   </div>`;
 };
 A.markStep = el => {
@@ -303,7 +319,8 @@ A.decide = el => {
   const [id, s] = el.dataset.arg.split('|');
   if (s === 'undo') delete S.t.dec[id]; else S.t.dec[id] = { s };
   render();
-  if (s === 'confirmed') toast('Flag confirmed.');
+  const g = gaps().find(x => x.id === id);
+  if (s === 'confirmed') toast(g && g.flagged ? 'Gap and red flag confirmed.' : id === SAMPLE_FLAG.id ? 'Red flag confirmed.' : 'Gap confirmed.');
 };
 A.openDismiss = el => {
   const id = el.dataset.arg;
@@ -323,7 +340,7 @@ A.saveDismiss = el => {
 A.reviewPatterns = () => openModal({
   title: 'Anonymous class mistake patterns',
   body: `<p class="muted">Tick the patterns to share with the class. Students see the explanation only, with no names, answers or grades.</p>
-    ${PATTERNS.map(p => `<label class="pchk"><input type="checkbox" id="pp-${p.id}" ${S.t.pat[p.id] ? 'checked' : ''}><span><strong>${esc(p.teacher)}</strong> <span class="muted small">(${p.count} in the class)</span><br><span class="small">Student sees: ${esc(p.explain)}</span></span></label>`).join('')}`,
+    ${PATTERNS.map(p => `<label class="pchk"><input type="checkbox" id="pp-${p.id}" ${S.t.pat[p.id] || !S.t.patReviewed ? 'checked' : ''}><span><strong>${esc(p.teacher)}</strong> <span class="muted small">(${p.count} in the class)</span><br><span class="small">Student sees: ${esc(p.explain)}</span></span></label>`).join('')}`,
   actions: [{ label: 'Save', act: 'savePatterns', kind: 'primary' }, { label: 'Cancel', act: 'closeModal' }]
 });
 A.savePatterns = () => {
@@ -340,7 +357,7 @@ A.releaseSummary = () => {
       <li>Grade: <strong>${fmt(total(), totalMax())}</strong></li><li>Feedback: ${esc(S.t.fb)}</li>${sup ? `<li>Support note: ${esc(S.t.support)}</li>` : ''}
       <li>Practice list: ${S.t.practice.length ? S.t.practice.map(esc).join(', ') : 'none'}</li>
       <li>Class patterns: ${pats.length ? pats.map(p => esc(p.title)).join(', ') : 'none'}</li></ul></div>
-      <div><h3>Stays hidden from students</h3><ul class="plain tight"><li>OCR confidence and candidate readings</li><li>Suggestions you have not approved</li><li>Dismissed flags and your reasons</li><li>Other children's answers and grades</li></ul></div></div>`,
+      <div><h3>Stays hidden from students</h3><ul class="plain tight"><li>OCR confidence and candidate readings</li><li>Suggestions you have not approved</li><li>The words “red flag”: ${STUDENT.name} sees a practice note instead</li><li>Dismissed flags and your reasons</li><li>Other children's answers and grades</li></ul></div></div>`,
     actions: [{ label: 'Publish result', act: 'publish', kind: 'primary' }, { label: 'Back', act: 'closeModal' }]
   });
 };
@@ -349,48 +366,63 @@ function doPublish(silent) {
   S.t.pub = {
     pts: total(), max: totalMax(), pct: pct(total(), totalMax()), fb: S.t.fb,
     support: (anyConf && S.t.support.trim()) ? S.t.support.trim() : '',
+    skills: confirmedGaps().map(g => g.skill).filter((x, i, a) => a.indexOf(x) === i),
+    flagged: confirmedGaps().some(g => g.flagged),
     practice: [...S.t.practice],
     patterns: PATTERNS.filter(p => S.t.pat[p.id]).map(p => ({ title: p.title, explain: p.explain }))
   };
   S.stu.stage = 'published';
-  S.notifs.student.unshift({ id: Date.now(), text: 'Your exam feedback is ready.', read: false, time: 'Just now' });
-  S.notifs.parent.unshift({ id: Date.now() + 1, text: `${STUDENT.name}'s exam feedback is ready.`, read: false, time: 'Just now' });
+  S.notifs.student.unshift({ id: Date.now(), text: 'Your Fractions Check results are ready', link: 'results', read: false, time: 'Just now' });
+  S.notifs.parent.unshift({ id: Date.now() + 1, from: 'teacher', text: `${STUDENT.name}’s Fractions Check result is published.${S.t.pub.flagged ? ` She needs some extra practice in fractions, so I added “${S.t.practice[0] || 'Compare fractions'}” to her practice list.` : ''}`, read: false, time: 'Just now' });
   if (!silent) { closeModal(true); render(); toast('Published. Lina and her parent have been notified.'); }
 }
 A.publish = () => doPublish(false);
 
 /* ---------- class insights ---------- */
+const whoCard = (name, tone, chip, text, acts) => `<div class="who ${tone}"><div class="who-top"><span class="avatar" aria-hidden="true">${name[0]}</span><strong>${esc(name)}</strong>${chip}</div>
+  <p class="small muted">${text}</p>${acts ? `<div class="row gap wrapr">${acts}</div>` : ''}</div>`;
+const redChip = label => `<span class="chip red">${ic('flag', 12)} ${label}</span>`;
+function flagRow(id, name, text, evidence) {
+  const d = S.t.dec[id];
+  if (!d) return whoCard(name, '', '<span class="chip amber">Suggested, needs decision</span>', esc(text),
+    `<button class="btn teal" data-act="decide" data-arg="${id}|confirmed">${ic('check', 16)} Confirm flag</button><button class="btn secondary" data-act="openDismiss" data-arg="${id}">Dismiss with reason</button>`);
+  if (d.s === 'dismissed') return whoCard(name, 'done', `<span class="chip grey">Dismissed</span>`, `${esc(text)} Reason: ${esc(d.reason)}.`,
+    `<button class="btn ghost" data-act="decide" data-arg="${id}|undo">Undo</button>`);
+  return whoCard(name, 'red', redChip('Red flag confirmed'), esc(text),
+    evidence ? `<button class="btn primary" data-act="compose">${ic('send', 16)} Send comment</button><button class="btn secondary" data-act="openHistory">View evidence</button>` : '');
+}
 SCREENS.teacher.insights = () => {
-  const gl = gaps(), verified = allVerified();
-  const flags = [];
-  if (S.stu.stage === 'none') flags.push({ id: 'wait', who: STUDENT.name, text: 'Waiting for her exam.', wait: true });
-  else if (!verified) flags.push({ id: 'wait', who: STUDENT.name, text: `${QS.length - verifiedCount()} answers are unverified, so they cannot raise a flag yet.`, wait: true });
-  else gl.forEach(g => flags.push({ id: g.id, who: STUDENT.name, text: g.flag }));
-  flags.push({ id: 'f2', who: 'Omar', text: 'Needs support: mixing numerator and denominator (2 verified exams)', sample: true });
-  const open = flags.filter(f => !f.wait && !S.t.dec[f.id]).length;
-  const groups = PATTERNS.map(p => `<li class="grp"><div><strong>${p.count}:</strong> ${esc(p.teacher.toLowerCase())}<br><span class="small muted">${S.t.pat[p.id] ? 'Shared with students (anonymous)' : 'Not shared with students'}</span></div>
-      <button class="btn ${S.t.pat[p.id] ? 'green' : 'secondary'}" data-act="togglePattern" data-arg="${p.id}" aria-pressed="${!!S.t.pat[p.id]}">${S.t.pat[p.id] ? ic('check', 16) + ' Shared' : 'Approve to share'}</button></li>`).join('');
-  const fl = flags.map(f => {
-    const d = S.t.dec[f.id];
-    return `<li class="flag"><div><strong>${f.who}</strong>${f.sample ? ' <span class="muted small">(sample)</span>' : ''}<br><span class="small">${esc(f.text)}</span></div>
-      ${f.wait ? '<span class="chip grey">Not counted</span>' : d ? `<span class="chip ${d.s === 'confirmed' ? 'green' : 'grey'}">${d.s === 'confirmed' ? 'Confirmed' : 'Dismissed: ' + esc(d.reason)}</span>` :
-        `<div class="row gap wrapr"><button class="btn secondary" data-act="decide" data-arg="${f.id}|confirmed">Confirm</button><button class="btn secondary" data-act="openDismiss" data-arg="${f.id}">Dismiss with reason</button></div>`}</li>`;
+  const verified = allVerified(), flagged = gaps().find(g => g.flagged);
+  const thisPct = S.t.pub ? S.t.pub.pct : verified ? pct(total(), totalMax()) : null;
+  const linaRow = S.stu.stage === 'none' ? whoCard(STUDENT.name, 'grey', '<span class="chip grey">Not counted yet</span>', 'Waiting for her exam.', '')
+    : !verified ? whoCard(STUDENT.name, 'grey', '<span class="chip grey">Not counted yet</span>', `${QS.length - verifiedCount()} answers are unverified, so they cannot raise a flag yet.`, `<button class="btn secondary" data-act="nav" data-arg="verify">Verify her paper</button>`)
+      : flagRow(flagged.id, STUDENT.name, `Fractions: same mistake in ${HISTORY.length + 1} exams (${PRIOR.map(p => p.pct + '%').join(', ')}, ${thisPct}%).`, true);
+  const groups = PATTERNS.map(p => {
+    const n = parseInt(p.count, 10);
+    return `<div class="grp"><div class="grp-top"><span>${esc(p.teacher)}</span><span class="chip amber">${n} of 24 students</span></div>
+      <div class="meter warn" aria-hidden="true"><i style="width:${Math.round(n / 24 * 100 * 2)}%"></i></div>
+      <div class="grp-bot"><span class="small muted">${S.t.pat[p.id] ? 'Shared with students without names' : 'Not shared with students yet'}</span>
+        <button class="btn ${S.t.pat[p.id] ? 'green' : 'secondary'}" data-act="togglePattern" data-arg="${p.id}" aria-pressed="${!!S.t.pat[p.id]}">${S.t.pat[p.id] ? ic('check', 16) + ' Shared' : 'Approve to share'}</button></div></div>`;
   }).join('');
+  const tiles = PRIOR.map((p, i) => `<div class="tile"><span>${p.label}</span><b>${p.pct}%</b><em>${esc(HISTORY[i] ? HISTORY[i].text : '')} (${esc(HISTORY[i] ? HISTORY[i].exam.split('· ')[1] : '')})</em></div>`).join('')
+    + `<div class="tile"><span>Fractions Check</span><b>${thisPct != null ? thisPct + '%' : '–'}</b><em>${verified ? 'Compared only the numerators (Q6)' : 'Not counted until verified'}</em></div>`;
   return `<div class="wrap wide">
-    <h1>Class insights</h1>
-    <div class="row gap wrapr"><span class="chip blue">Class: Grade ${STUDENT.cls}</span><span class="chip blue">Topic: Fractions</span></div>
-    <section class="card"><h2>Shared misconception groups</h2><ul class="list">${groups}</ul></section>
-    <section class="card"><h2>Recurring-error history</h2><p class="muted small">Only verified answers appear here.</p>
-      <button class="btn secondary" data-act="openHistory">Open ${STUDENT.name}'s evidence across exams ${ic('arrow', 16)}</button></section>
-    <section class="card"><h2>Support review</h2><p class="muted small">${open} suggested ${open === 1 ? 'flag' : 'flags'} to confirm or dismiss. Unverified answers cannot raise a flag.</p><ul class="list">${fl}</ul></section>
-    <button class="btn teal big" data-act="compose">${ic('send', 18)} Send teacher comment or notification</button>
+    <div class="row between wrapr"><div><h1>Class insights</h1><p class="sub">Grade ${STUDENT.cls} · Fractions Check · built only from answers you verified</p></div>
+      <button class="btn secondary" data-act="openHistory">Export verified history</button></div>
+    <div class="grid-side"><div>
+      <section class="card"><h2>Misconception groups</h2><p class="muted small">Students grouped by the same mistake, so you can reteach once. Counts use verified answers only.</p>${groups}</section>
+      <section class="card"><h2>${STUDENT.name}’s verified history</h2><p class="muted small">Every exam uses only readings you confirmed. Use it in parent meetings.</p><div class="tiles">${tiles}</div></section>
+    </div>
+    <section class="card"><h2>Students who need support</h2>
+      ${linaRow}${flagRow(SAMPLE_FLAG.id, SAMPLE_FLAG.who, SAMPLE_FLAG.text + ' (Sample row.)', false)}
+      <p class="small muted">${ic('lock', 14)} Flags are never raised from unverified answers.</p></section></div>
   </div>`;
 };
 A.togglePattern = el => { S.t.pat[el.dataset.arg] = !S.t.pat[el.dataset.arg]; S.t.patReviewed = true; render(); };
 A.openHistory = () => {
   const cur = allVerified()
-    ? `<li><span class="chip blue sm">Exam 3 · Q6</span> ${esc(L(QS[5].cands[0].full))} <span class="chip green sm">${ic('check', 12)} Verified</span></li>`
-    : `<li><span class="chip blue sm">Exam 3</span> Not counted until all answers are verified <span class="chip grey sm">Unverified</span></li>`;
+    ? `<li><span class="chip blue sm">This exam · Q6</span> ${esc(L(QS[5].cands[0].full))} <span class="chip green sm">${ic('check', 12)} Verified</span></li>`
+    : `<li><span class="chip blue sm">This exam</span> Not counted until all answers are verified <span class="chip grey sm">Unverified</span></li>`;
   openModal({
     title: `${STUDENT.name}: evidence across exams`,
     body: `<ul class="ev big">${cur}${HISTORY.slice().reverse().map(h => `<li><span class="chip blue sm">${esc(h.exam)}</span> ${esc(h.text)} <span class="chip green sm">${ic('check', 12)} Verified</span></li>`).join('')}</ul>
@@ -399,36 +431,58 @@ A.openHistory = () => {
   });
 };
 A.compose = () => openModal({
-  title: 'Send comment or notification',
-  body: `<fieldset class="reasons"><legend>Send to</legend>
-      <label class="rr"><input type="checkbox" id="to-s" checked> ${STUDENT.name} (student)</label>
-      <label class="rr"><input type="checkbox" id="to-p" checked> ${PARENT_NAME}</label></fieldset>
-    <label for="cmsg">Message</label><textarea id="cmsg" rows="3">Well done on your exam. Please try the fraction practice this week.</textarea>`,
-  actions: [{ label: 'Send', act: 'sendComment', kind: 'primary' }, { label: 'Cancel', act: 'closeModal' }]
+  title: `Send a comment to ${STUDENT.name}`,
+  body: `<p class="muted">It arrives in ${STUDENT.name}’s Notifications with an unread badge. Keep it short and kind.</p>
+    <fieldset class="reasons"><legend>Type of message</legend>${MSG_TYPES.map((t, i) => `<label class="opt"><input type="radio" name="mtype" value="${esc(t)}" ${i === 1 ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</fieldset>
+    <label for="cmsg">Message</label><textarea id="cmsg" rows="3">Great effort, ${STUDENT.name}! This week, try the pizza game: colour 2/3 and 5/8 and check which is bigger. Look at the bottom numbers too.</textarea>
+    <label class="rr"><input type="checkbox" id="c-att" checked> Attach practice: ${esc(S.t.practice[0] || 'Compare fractions')}</label>
+    <label class="rr"><input type="checkbox" id="to-p" checked> Also send to ${STUDENT.name}’s parent</label>`,
+  actions: [{ label: 'Cancel', act: 'closeModal' }, { label: `Send to ${STUDENT.name}`, act: 'sendComment', kind: 'primary' }]
 });
 A.sendComment = () => {
-  const msg = $('#cmsg').value.trim(), s = $('#to-s').checked, p = $('#to-p').checked;
+  const msg = $('#cmsg').value.trim(), p = $('#to-p').checked, att = $('#c-att').checked;
   if (!msg) { toast('Write a message first.'); return; }
-  if (!s && !p) { toast('Choose who should get it.'); return; }
-  if (s) S.notifs.student.unshift({ id: Date.now(), text: 'Teacher: ' + msg, read: false, time: 'Just now' });
-  if (p) S.notifs.parent.unshift({ id: Date.now() + 1, text: 'Teacher: ' + msg, read: false, time: 'Just now' });
-  closeModal(true); render(); toast('Sent.');
+  const extra = att ? ` Practice: ${S.t.practice[0] || 'Compare fractions'}.` : '';
+  S.notifs.student.unshift({ id: Date.now(), text: `${TEACHER.name}: ${msg}${extra}`, read: false, time: 'Just now' });
+  if (p) S.notifs.parent.unshift({ id: Date.now() + 1, from: 'teacher', text: msg + extra, read: false, time: 'Just now' });
+  closeModal(true); render(); toast(p ? `Sent to ${STUDENT.name} and her parent.` : `Sent to ${STUDENT.name}.`);
 };
 
 /* ---------- parent view ---------- */
 SCREENS.parent.home = () => {
   const p = S.t.pub;
-  const vals = PRIOR.map(x => x.pct).concat(p ? [p.pct] : []), labels = PRIOR.map(x => x.label).concat(p ? ['Exam 3'] : []);
-  return `<div class="wrap">
-    <h1>${STUDENT.name}'s progress</h1>
-    <p class="note-row">${ic('shield', 18)}<span>You see only your own child's information.</span></p>
-    ${p ? `<section class="card grade"><div><span class="muted">Teacher-confirmed grade · Fractions Check</span><div class="big-n">${p.pct}%</div><span class="muted">${p.pts} out of ${p.max}</span></div>${ic('check', 40)}</section>
-      <div class="grid2"><section class="card"><h2>Teacher feedback</h2><p>${esc(p.fb)}</p>${p.support ? `<p class="support">${ic('user', 18)} ${esc(p.support)}</p>` : ''}</section>
-      <section class="card"><h2>Practice at home</h2>${p.practice.length ? `<ol class="plain">${p.practice.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : '<p class="muted">Nothing to add this time.</p>'}</section></div>`
-    : `<section class="card center">${ic('clock', 32)}<p class="lead">No new result yet</p><p class="muted">${S.stu.stage === 'submitted' ? `${STUDENT.name}'s latest exam is with the teacher.` : `${STUDENT.name}'s latest exam has not been sent yet.`}</p></section>`}
-    <section class="card"><h2>Progress across exams</h2>${progressBars(vals, labels)}<p class="muted">${encourage(vals)}</p></section>
-    <section class="card"><h2>Biweekly report</h2><p class="muted">Grades, submissions and attendance. Your teacher sends it every two weeks.</p></section>
+  const vals = PRIOR.map(x => x.pct).concat(p ? [p.pct] : []), labels = PRIOR.map(x => x.label).concat(p ? ['Fractions Check'] : []);
+  const lastT = S.notifs.parent.find(n => n.from === 'teacher');
+  const result = p ? `<section class="card grade"><span class="chip teal">${ic('check', 14)} Teacher-confirmed grade</span><h2 style="margin-top:12px">Fractions Check</h2>
+      <div class="big-n">${p.pts} out of ${p.max}</div><p class="small muted">Published today by ${TEACHER.name}</p><p>Teacher feedback: ${esc(p.fb)}</p></section>`
+    : `<section class="card center">${ic('clock', 32)}<p class="lead">No new result yet</p><p class="muted">${S.stu.stage === 'submitted' ? `${STUDENT.name}'s latest exam is with the teacher.` : `${STUDENT.name}'s latest exam has not been sent yet.`}</p></section>`;
+  const support = p && p.flagged ? `<section class="card supp-card"><h2>Extra practice suggested: ${esc(p.skills[0].toLowerCase())}</h2>
+      <p class="small">${TEACHER.name} confirmed this after checking ${HISTORY.length + 1} exams.</p>
+      <div class="help"><strong>How to help at home</strong><p class="small">Draw two pizzas. Colour 2/3 of one and 5/8 of the other. Ask ${STUDENT.name} which is more, and why.</p></div></section>`
+    : `<section class="card"><h2>Practice at home</h2>${p && p.practice.length ? `<ol class="plain">${p.practice.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : '<p class="muted">The practice list appears after the teacher publishes a result.</p>'}</section>`;
+  return `<div class="wrap wide">
+    <h1>${STUDENT.name}’s progress</h1><p class="sub">Grade ${STUDENT.cls}, ${TEACHER.name}’s class. You see only your own child’s results.</p>
+    <div class="grid2">${result}${support}</div>
+    <div class="grid2"><section class="card"><h2>Progress across exams</h2>${progressBars(vals, labels)}</section>
+      <section class="card"><h2>Messages</h2><p>${lastT ? `${TEACHER.name}: ${esc(lastT.text)}` : 'No messages yet.'}</p>
+        <button class="btn secondary" data-act="nav" data-arg="messages">${ic('chat', 18)} Message ${TEACHER.name}</button></section></div>
+    <p class="note-row small muted">${ic('lock', 16)}<span>Other children’s results and class averages are never shown to parents.</span></p>
   </div>`;
 };
-SCREENS.parent.messages = () => `<div class="wrap narrow"><h1>Messages</h1><section class="card">
-  ${S.notifs.parent.map(n => `<div class="note-row big-row">${ic('bell', 20)}<div><span>${esc(n.text)}</span><br><span class="muted small">${esc(n.time)}</span></div>${S.newIds.includes(n.id) ? '<span class="chip blue">New</span>' : ''}</div>`).join('')}</section></div>`;
+SCREENS.parent.messages = () => {
+  const th = S.notifs.parent.slice().reverse().map(n => n.from === 'system'
+    ? `<span class="chip teal sysmsg">${esc(n.text)}</span>`
+    : `<div class="bub-w${n.from === 'parent' ? ' me' : ''}"><div class="bub">${esc(n.text)}</div><span class="bub-t">${n.from === 'parent' ? 'You' : TEACHER.name} · ${esc(n.time)}</span></div>`).join('');
+  return `<div class="wrap"><h1>Messages</h1><p class="sub">Your conversation with ${TEACHER.name} about ${STUDENT.name}. No other parent can see it.</p>
+    <section class="card" style="max-width:720px"><div class="row" style="gap:12px"><span class="avatar" style="background:var(--confirm-bg);color:var(--confirm)">${TEACHER.initials}</span><div><strong>${TEACHER.name}</strong><br><span class="small muted">Maths teacher · Grade ${STUDENT.cls}</span></div></div>
+      <hr style="border:0;border-top:1px solid var(--border);margin:14px 0">
+      <div class="thread" aria-live="polite">${th}</div>
+      <div class="composer"><label class="sr" for="pmsg">Message</label><input id="pmsg" placeholder="Write a message to ${TEACHER.name}"><button class="btn primary" data-act="parentSend">${ic('send', 16)} Send</button></div></section></div>`;
+};
+A.parentSend = () => {
+  const v = ($('#pmsg').value || '').trim();
+  if (!v) { toast('Write a message first.'); return; }
+  S.notifs.parent.unshift({ id: Date.now(), from: 'parent', text: v, read: true, time: 'Just now' });
+  render(); toast(`Sent to ${TEACHER.name}.`);
+};
+
